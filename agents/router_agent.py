@@ -9,7 +9,7 @@ import json
 
 class RouterOutput(BaseModel):
     """Schema para saída estruturada do Router"""
-    category: Literal["CALCULATOR", "RAG", "DATETIME", "DIRECT"] = Field(
+    category: Literal["CALCULATOR", "RAG", "WEB_SEARCH", "DATETIME", "DIRECT"] = Field(
         description="Categoria da pergunta"
     )
     confidence: float = Field(
@@ -24,6 +24,7 @@ class RouterOutput(BaseModel):
 class RouterAgent:
     """
     Router Agent que classifica a pergunta do usuário usando JSON→TOON→JSON
+    Agora com suporte a WEB_SEARCH para informações atuais
     """
     
     def __init__(self, provider: str = None, use_toon: bool = True):
@@ -41,8 +42,9 @@ class RouterAgent:
         self.parser = JsonOutputParser(pydantic_object=RouterOutput)
         
         print(f"[ROUTER] ✓ Router Agent inicializado (TOON: {use_toon})")
+        print(f"[ROUTER] Categorias: CALCULATOR, RAG, WEB_SEARCH, DATETIME, DIRECT")
     
-    def route(self, user_query: str) -> Literal["CALCULATOR", "RAG", "DATETIME", "DIRECT"]:
+    def route(self, user_query: str) -> Literal["CALCULATOR", "RAG", "WEB_SEARCH", "DATETIME", "DIRECT"]:
         """
         Analisa a query do usuário e retorna a categoria apropriada
         
@@ -50,7 +52,7 @@ class RouterAgent:
             user_query: Pergunta do usuário
             
         Returns:
-            Uma das categorias: CALCULATOR, RAG, DATETIME, DIRECT
+            Uma das categorias: CALCULATOR, RAG, WEB_SEARCH, DATETIME, DIRECT
         """
         try:
             if self.use_toon:
@@ -66,19 +68,19 @@ class RouterAgent:
         """
         Roteamento usando JSON→TOON→JSON (otimizado)
         """
-        # 1. Dados em JSON (trabalhamos programaticamente)
+        # 1. Dados em JSON
         input_data = {
             "query": user_query,
             "task": "classify_query"
         }
         
         output_schema = {
-            "category": "string (CALCULATOR|RAG|DATETIME|DIRECT)",
+            "category": "string (CALCULATOR|RAG|WEB_SEARCH|DATETIME|DIRECT)",
             "confidence": "float (0.0-1.0)",
             "reasoning": "string (brief explanation)"
         }
         
-        # 2. Converte para TOON antes de enviar para LLM
+        # 2. Converte para TOON com exemplos atualizados
         toon_prompt = TOONPromptBuilder.build_structured_prompt(
             task=self.prompt,
             input_data=input_data,
@@ -93,11 +95,19 @@ class RouterAgent:
                     }
                 },
                 {
-                    "input": {"query": "Tell me about LLMs"},
+                    "input": {"query": "Tell me about LLMs in your knowledge base"},
                     "output": {
                         "category": "RAG",
                         "confidence": 0.95,
-                        "reasoning": "Technical topic in knowledge base"
+                        "reasoning": "Technical topic in internal knowledge base"
+                    }
+                },
+                {
+                    "input": {"query": "Who is the president of Brazil in 2025?"},
+                    "output": {
+                        "category": "WEB_SEARCH",
+                        "confidence": 0.99,
+                        "reasoning": "Current political information requiring web search"
                     }
                 },
                 {
@@ -113,7 +123,15 @@ class RouterAgent:
                     "output": {
                         "category": "DIRECT",
                         "confidence": 0.90,
-                        "reasoning": "General knowledge question"
+                        "reasoning": "Historical general knowledge question"
+                    }
+                },
+                {
+                    "input": {"query": "Latest AI news"},
+                    "output": {
+                        "category": "WEB_SEARCH",
+                        "confidence": 0.97,
+                        "reasoning": "Current news requiring web search"
                     }
                 }
             ]
@@ -125,7 +143,6 @@ class RouterAgent:
         
         # 4. Converte resposta de volta para JSON
         try:
-            # Tenta parsear JSON da resposta
             response_text = response.content.strip()
             
             # Remove markdown code blocks se existirem
@@ -163,7 +180,7 @@ class RouterAgent:
         response = self.llm.invoke(messages)
         category = response.content.strip().upper()
         
-        valid_categories = {"CALCULATOR", "RAG", "DATETIME", "DIRECT"}
+        valid_categories = {"CALCULATOR", "RAG", "WEB_SEARCH", "DATETIME", "DIRECT"}
         
         if category in valid_categories:
             print(f"[ROUTER] Query: '{user_query[:50]}...' → {category}")
@@ -176,7 +193,7 @@ class RouterAgent:
         Extrai categoria do texto quando parsing JSON falha
         """
         text_upper = text.upper()
-        valid_categories = ["CALCULATOR", "RAG", "DATETIME", "DIRECT"]
+        valid_categories = ["WEB_SEARCH", "CALCULATOR", "DATETIME", "RAG", "DIRECT"]
         
         for cat in valid_categories:
             if cat in text_upper:
@@ -201,6 +218,7 @@ class RouterAgent:
         explanations = {
             "CALCULATOR": "Detectei uma operação matemática na sua pergunta.",
             "RAG": "Vou buscar informações na base de conhecimento sobre esse tópico.",
+            "WEB_SEARCH": "Vou pesquisar informações atuais na internet sobre isso.",
             "DATETIME": "Vou consultar informações de data/hora.",
             "DIRECT": "Vou responder usando meu conhecimento geral."
         }
@@ -219,17 +237,20 @@ if __name__ == "__main__":
     test_queries = [
         "Quanto é 128 vezes 46?",
         "Me fale sobre LLMs",
+        "Quem é o presidente do Brasil em 2025?",
         "Que horas são?",
         "Quem foi Albert Einstein?",
+        "Notícias sobre IA hoje",
         "Qual sua experiência com Python?",
         "Calcule a raiz quadrada de 144",
         "O que são embeddings?",
+        "Clima em São Paulo agora",
         "Olá, como vai?",
         "Quantos dias entre 2024-01-01 e 2024-12-31?"
     ]
     
     print("\n" + "="*60)
-    print("TESTANDO ROUTER AGENT")
+    print("TESTANDO ROUTER AGENT (COM WEB_SEARCH)")
     print("="*60 + "\n")
     
     for query in test_queries:

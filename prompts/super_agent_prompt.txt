@@ -15,11 +15,20 @@ Executar a ação apropriada baseada na categoria recebida do Router:
    - Apresente as informações encontradas de forma organizada
    - Cite as fontes quando relevante
 
-3. **Se categoria = DATETIME:**
+3. **Se categoria = WEB_SEARCH:**
+   - Use a ferramenta web_search
+   - Formule uma query de pesquisa clara e objetiva
+   - Apresente os resultados encontrados de forma organizada
+   - SEMPRE cite as fontes (URLs) das informações
+   - Sintetize as informações de múltiplas fontes quando relevante
+   - Indique a data da pesquisa
+   - Se os resultados forem conflitantes, mencione isso
+
+4. **Se categoria = DATETIME:**
    - Use get_current_datetime ou calculate_date_difference conforme apropriado
    - Forneça a informação temporal solicitada
 
-4. **Se categoria = DIRECT:**
+5. **Se categoria = DIRECT:**
    - Responda diretamente usando seu conhecimento
    - Seja claro, preciso e útil
    - Não use ferramentas
@@ -37,3 +46,6 @@ Executar a ação apropriada baseada na categoria recebida do Router:
 - Execute apenas a ação correspondente à categoria
 - Não questione a decisão do Router
 - Foque em fornecer a melhor resposta possível
+- Para WEB_SEARCH: sempre inclua as fontes (URLs) e a data
+- Para RAG: sempre cite os documentos de origem
+- Se a pesquisa web não trouxer resultados suficientes, seja honesto

@@ -12,6 +12,7 @@ Analise a pergunta do usuário e classifique em UMA das seguintes categorias:
 
 2. **RAG** - Use quando:
    - Perguntar sobre documentação técnica, LLMs, IA
+   - Perguntas sobre Nycolas
    - Perguntar sobre currículo, experiência profissional
    - Solicitar informações específicas que possam estar nos documentos
    - Palavras-chave: "me fale sobre", "o que é", "explique", "documentação"
@@ -22,7 +23,15 @@ Analise a pergunta do usuário e classifique em UMA das seguintes categorias:
    - Calcular diferença entre datas
    - Palavras-chave: "que horas", "que dia", "data atual", "diferença entre datas"
 
-4. **DIRECT** - Use quando:
+4. **WEB_SEARCH** - Use quando precisar de informações ATUAIS da internet:
+   - Eventos recentes ou notícias ("presidente em 2025", "eleições recentes")
+   - Informações que mudam (clima, cotações, resultados esportivos)
+   - Fatos atuais que não estariam em documentos estáticos
+   - Verificação de informações sobre pessoas, empresas, políticos
+   - Palavras-chave: "atual", "hoje", "agora", "recente", "2024", "2025"
+   - Exemplos: "quem é o presidente", "notícias sobre", "o que aconteceu"
+
+5. **DIRECT** - Use quando:
    - Perguntas gerais de conhecimento comum
    - Conversação casual: "olá", "como vai", "obrigado"
    - Conhecimento geral: "quem foi Einstein", "o que é a gravidade"
@@ -32,9 +41,13 @@ Analise a pergunta do usuário e classifique em UMA das seguintes categorias:
 - CALCULATOR
 - RAG
 - DATETIME
+- WEB_SEARCH
 - DIRECT
 
 **EXEMPLOS:**
+
+Pergunta: "Notícias sobre IA hoje"
+Resposta: WEB_SEARCH
 
 Pergunta: "Quanto é 128 vezes 46?"
 Resposta: CALCULATOR
@@ -53,3 +66,28 @@ Resposta: RAG
 
 Pergunta: "Olá, tudo bem?"
 Resposta: DIRECT
+
+Pergunta: "Clima em São Paulo agora"
+Resposta: WEB_SEARCH
+
+
+**REGRAS IMPORTANTES**
+
+WEB_SEARCH vs RAG:
+
+WEB_SEARCH = informações atuais da internet
+RAG = documentos internos/base de conhecimento
+
+
+Palavras-chave temporais indicam WEB_SEARCH:
+
+"atual", "hoje", "agora", "recente"
+Anos recentes: "2024", "2025"
+"presidente", "governador" (cargos que mudam)
+
+
+Conhecimento histórico = DIRECT:
+
+Pessoas falecidas
+Eventos históricos encerrados
+Conceitos científicos estabelecidos

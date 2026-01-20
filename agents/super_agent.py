@@ -9,6 +9,7 @@ from config.llm_factory import llm_factory
 from tools.calculator_tool import calculator
 from tools.rag_tool import search_knowledge_base
 from tools.datetime_tool import get_current_datetime, calculate_date_difference
+from tools.web_search_tool import web_search  # NOVA IMPORTAÇÃO
 from agents.guardrails import InputGuardrails, OutputGuardrails, ConversationGuardrails
 from agents.router_agent import RouterAgent
 from prompts.system_prompts import get_super_agent_prompt, get_rag_agent_prompt
@@ -23,6 +24,7 @@ class AgentState(TypedDict):
 class SuperAgent:
     """
     Super Agente com Router e múltiplas ferramentas especializadas
+    Agora inclui Web Search para informações atuais
     """
     
     def __init__(self, provider: str = None):
@@ -42,7 +44,8 @@ class SuperAgent:
         self.tools = {
             "calculator": calculator,
             "rag": search_knowledge_base,
-            "datetime": [get_current_datetime, calculate_date_difference]
+            "datetime": [get_current_datetime, calculate_date_difference],
+            "web_search": web_search  # NOVA FERRAMENTA
         }
         
         # Guardrails
@@ -55,6 +58,7 @@ class SuperAgent:
         
         print(f"[SUPER AGENT] ✓ Inicializado com Router + Ferramentas especializadas")
         print(f"[SUPER AGENT] Provider: {llm_factory.get_provider_info()['provider']}")
+        print(f"[SUPER AGENT] Ferramentas: CALCULATOR, RAG, WEB_SEARCH, DATETIME, DIRECT")
     
     def _build_graph(self) -> StateGraph:
         """Constrói o grafo de execução do agente com Router"""
@@ -65,6 +69,7 @@ class SuperAgent:
         workflow.add_node("router", self._router_node)
         workflow.add_node("calculator_agent", self._calculator_agent_node)
         workflow.add_node("rag_agent", self._rag_agent_node)
+        workflow.add_node("web_search_agent", self._web_search_agent_node)  # NOVO NÓ
         workflow.add_node("datetime_agent", self._datetime_agent_node)
         workflow.add_node("direct_agent", self._direct_agent_node)
         
@@ -78,6 +83,7 @@ class SuperAgent:
             {
                 "CALCULATOR": "calculator_agent",
                 "RAG": "rag_agent",
+                "WEB_SEARCH": "web_search_agent",  # NOVA ROTA
                 "DATETIME": "datetime_agent",
                 "DIRECT": "direct_agent"
             }
@@ -86,6 +92,7 @@ class SuperAgent:
         # Todos os agentes terminam após executar
         workflow.add_edge("calculator_agent", END)
         workflow.add_edge("rag_agent", END)
+        workflow.add_edge("web_search_agent", END)  # NOVA EDGE
         workflow.add_edge("datetime_agent", END)
         workflow.add_edge("direct_agent", END)
         
@@ -98,7 +105,6 @@ class SuperAgent:
         Nó do Router que classifica a pergunta
         """
         try:
-            # Pega a última mensagem do usuário
             user_messages = [msg for msg in state["messages"] if isinstance(msg, HumanMessage)]
             
             if not user_messages:
@@ -115,7 +121,7 @@ class SuperAgent:
             print(f"[ROUTER NODE] ✗ Erro: {str(e)}")
             return {"category": "DIRECT"}
     
-    def _route_to_agent(self, state: AgentState) -> Literal["CALCULATOR", "RAG", "DATETIME", "DIRECT"]:
+    def _route_to_agent(self, state: AgentState) -> Literal["CALCULATOR", "RAG", "WEB_SEARCH", "DATETIME", "DIRECT"]:
         """
         Função de decisão para conditional edge
         """
@@ -123,30 +129,19 @@ class SuperAgent:
         return category
     
     def _calculator_agent_node(self, state: AgentState) -> Dict[str, Any]:
-        """
-        Agente especializado em cálculos matemáticos
-        """
+        """Agente especializado em cálculos matemáticos"""
         try:
-            # Bind apenas a ferramenta de calculadora
             llm_with_calc = self.llm.bind_tools([calculator])
-            
-            # System prompt específico
             system_msg = SystemMessage(content=get_super_agent_prompt() + "\n\nCATEGORIA: CALCULATOR - Use a ferramenta calculator.")
             messages = [system_msg] + state["messages"]
             
-            # Primeira chamada: decide usar a tool
             response = llm_with_calc.invoke(messages)
             
-            # Se há tool calls, executa
             if response.tool_calls:
-                # Executa a tool
                 tool_node = ToolNode([calculator])
                 tool_result = tool_node.invoke({"messages": [response]})
-                
-                # Segunda chamada: formula resposta final com o resultado
                 messages_with_result = messages + [response] + tool_result["messages"]
                 final_response = self.llm.invoke(messages_with_result)
-                
                 return {"messages": [response] + tool_result["messages"] + [final_response]}
             else:
                 return {"messages": [response]}
@@ -157,30 +152,19 @@ class SuperAgent:
             return {"messages": [AIMessage(content=error_msg)]}
     
     def _rag_agent_node(self, state: AgentState) -> Dict[str, Any]:
-        """
-        Agente especializado em busca RAG
-        """
+        """Agente especializado em busca RAG"""
         try:
-            # Bind apenas a ferramenta RAG
             llm_with_rag = self.llm.bind_tools([search_knowledge_base])
-            
-            # System prompt específico para RAG
             system_msg = SystemMessage(content=get_rag_agent_prompt())
             messages = [system_msg] + state["messages"]
             
-            # Primeira chamada: decide buscar
             response = llm_with_rag.invoke(messages)
             
-            # Se há tool calls, executa
             if response.tool_calls:
-                # Executa a busca
                 tool_node = ToolNode([search_knowledge_base])
                 tool_result = tool_node.invoke({"messages": [response]})
-                
-                # Segunda chamada: formula resposta com os documentos encontrados
                 messages_with_result = messages + [response] + tool_result["messages"]
                 final_response = self.llm.invoke(messages_with_result)
-                
                 return {"messages": [response] + tool_result["messages"] + [final_response]}
             else:
                 return {"messages": [response]}
@@ -190,32 +174,56 @@ class SuperAgent:
             error_msg = self.output_guardrails.handle_error_gracefully(e, "rag_agent")
             return {"messages": [AIMessage(content=error_msg)]}
     
-    def _datetime_agent_node(self, state: AgentState) -> Dict[str, Any]:
+    def _web_search_agent_node(self, state: AgentState) -> Dict[str, Any]:
         """
-        Agente especializado em data/hora
+        NOVO: Agente especializado em pesquisa web para informações atuais
         """
         try:
-            # Bind ferramentas de datetime
+            llm_with_web = self.llm.bind_tools([web_search])
+            
+            system_msg = SystemMessage(content=get_super_agent_prompt() + """
+
+CATEGORIA: WEB_SEARCH - Use a ferramenta web_search para buscar informações atuais.
+
+IMPORTANTE:
+- Sempre cite as fontes (URLs) das informações
+- Indique quando a pesquisa foi realizada
+- Sintetize informações de múltiplas fontes quando relevante
+- Se encontrar informações conflitantes, mencione isso
+""")
+            messages = [system_msg] + state["messages"]
+            
+            response = llm_with_web.invoke(messages)
+            
+            if response.tool_calls:
+                tool_node = ToolNode([web_search])
+                tool_result = tool_node.invoke({"messages": [response]})
+                messages_with_result = messages + [response] + tool_result["messages"]
+                final_response = self.llm.invoke(messages_with_result)
+                return {"messages": [response] + tool_result["messages"] + [final_response]}
+            else:
+                return {"messages": [response]}
+                
+        except Exception as e:
+            print(f"[WEB SEARCH AGENT] ✗ Erro: {str(e)}")
+            error_msg = self.output_guardrails.handle_error_gracefully(e, "web_search_agent")
+            return {"messages": [AIMessage(content=error_msg)]}
+    
+    def _datetime_agent_node(self, state: AgentState) -> Dict[str, Any]:
+        """Agente especializado em data/hora"""
+        try:
             datetime_tools = [get_current_datetime, calculate_date_difference]
             llm_with_datetime = self.llm.bind_tools(datetime_tools)
-            
-            # System prompt específico
             system_msg = SystemMessage(content=get_super_agent_prompt() + "\n\nCATEGORIA: DATETIME - Use as ferramentas de data/hora.")
             messages = [system_msg] + state["messages"]
             
-            # Primeira chamada: decide qual ferramenta usar
             response = llm_with_datetime.invoke(messages)
             
-            # Se há tool calls, executa
             if response.tool_calls:
-                # Executa a tool
                 tool_node = ToolNode(datetime_tools)
                 tool_result = tool_node.invoke({"messages": [response]})
-                
-                # Segunda chamada: formula resposta final
                 messages_with_result = messages + [response] + tool_result["messages"]
                 final_response = self.llm.invoke(messages_with_result)
-                
                 return {"messages": [response] + tool_result["messages"] + [final_response]}
             else:
                 return {"messages": [response]}
@@ -226,17 +234,11 @@ class SuperAgent:
             return {"messages": [AIMessage(content=error_msg)]}
     
     def _direct_agent_node(self, state: AgentState) -> Dict[str, Any]:
-        """
-        Agente para respostas diretas sem ferramentas
-        """
+        """Agente para respostas diretas sem ferramentas"""
         try:
-            # System prompt para respostas diretas
             system_msg = SystemMessage(content=get_super_agent_prompt() + "\n\nCATEGORIA: DIRECT - Responda diretamente usando seu conhecimento.")
             messages = [system_msg] + state["messages"]
-            
-            # Chama o LLM sem ferramentas
             response = self.llm.invoke(messages)
-            
             return {"messages": [response]}
                 
         except Exception as e:
@@ -252,14 +254,6 @@ class SuperAgent:
     ) -> Dict[str, Any]:
         """
         Processa uma mensagem do usuário com Router e Guardrails
-        
-        Args:
-            user_input: Mensagem do usuário
-            thread_id: ID da thread para manter contexto
-            debug: Se True, retorna informações de debug
-            
-        Returns:
-            Dict com 'success', 'response', 'category', 'error' (se houver)
         """
         
         # INPUT GUARDRAILS
@@ -274,7 +268,6 @@ class SuperAgent:
         
         sanitized_input = validation["sanitized_input"]
         
-        # Verifica apropriação
         appropriateness = self.input_guardrails.check_message_appropriateness(sanitized_input)
         
         if not appropriateness["appropriate"]:
@@ -284,14 +277,11 @@ class SuperAgent:
                 "error": appropriateness["reason"]
             }
         
-        # Configuração da thread
         config = {"configurable": {"thread_id": thread_id}}
         
         try:
-            # Adiciona mensagem do usuário ao estado
             input_messages = [HumanMessage(content=sanitized_input)]
             
-            # Executa o grafo
             result = self.graph.invoke(
                 {
                     "messages": input_messages,
@@ -302,7 +292,6 @@ class SuperAgent:
                 config=config
             )
             
-            # OUTPUT GUARDRAILS
             messages = result.get("messages", [])
             category = result.get("category", "UNKNOWN")
             
@@ -314,19 +303,13 @@ class SuperAgent:
                     "category": category
                 }
             
-            # Pega a última mensagem da IA
             final_response = self.output_guardrails.ensure_complete_response(messages)
-            
-            # Valida a resposta
             output_validation = self.output_guardrails.validate_output(final_response)
-            
-            # Verifica se conversa está muito longa
             conversation_check = self.conversation_guardrails.check_conversation_length(messages)
             
             if conversation_check["warning"]:
                 final_response += f"\n\n💡 {conversation_check['warning']}"
             
-            # Detecta loops
             if self.conversation_guardrails.detect_loops(messages):
                 final_response += "\n\n⚠️ Parece que estamos em um padrão repetitivo. Posso ajudar com algo diferente?"
             
@@ -350,9 +333,7 @@ class SuperAgent:
             
         except Exception as e:
             print(f"[SUPER AGENT] ✗ Erro ao processar mensagem: {str(e)}")
-            
             error_message = self.output_guardrails.handle_error_gracefully(e, "process_message")
-            
             return {
                 "success": False,
                 "response": error_message,
@@ -361,15 +342,7 @@ class SuperAgent:
             }
     
     def get_conversation_history(self, thread_id: str = "default") -> List[BaseMessage]:
-        """
-        Recupera o histórico de conversação
-        
-        Args:
-            thread_id: ID da thread
-            
-        Returns:
-            Lista de mensagens
-        """
+        """Recupera o histórico de conversação"""
         try:
             config = {"configurable": {"thread_id": thread_id}}
             state = self.graph.get_state(config)
@@ -379,30 +352,25 @@ class SuperAgent:
             return []
     
     def clear_conversation(self, thread_id: str = "default"):
-        """
-        Limpa a conversa de uma thread
-        
-        Args:
-            thread_id: ID da thread para limpar
-        """
+        """Limpa a conversa de uma thread"""
         print(f"[SUPER AGENT] Conversa limpa para thread: {thread_id}")
 
 if __name__ == "__main__":
-    # Teste completo do sistema
     agent = SuperAgent()
     
     test_messages = [
         "Olá! Como você pode me ajudar?",
         "Quanto é 128 vezes 46?",
         "Me fale sobre LLMs",
+        "Quem é o presidente do Brasil em 2025?",  # Agora deve usar WEB_SEARCH
         "Que horas são?",
+        "Notícias sobre IA hoje",  # Deve usar WEB_SEARCH
         "Quem foi Albert Einstein?",
-        "Qual sua experiência com Python?",
         "Calcule 2 elevado a 10"
     ]
     
     print("\n" + "="*60)
-    print("TESTANDO SUPER AGENT COM ROUTER")
+    print("TESTANDO SUPER AGENT COM WEB SEARCH")
     print("="*60 + "\n")
     
     for msg in test_messages:

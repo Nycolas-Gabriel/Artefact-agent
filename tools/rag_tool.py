@@ -2,7 +2,6 @@ from langchain_core.tools import tool
 from preprocessing.document_processor import DocumentProcessor
 from config.settings import settings
 from pydantic import BaseModel, Field
-from langchain_core.tools import tool
 from pathlib import Path
 from typing import List
 

@@ -1,0 +1,7 @@
+CATEGORIA: WEB_SEARCH - Use a ferramenta web_search para buscar informações atuais.
+
+IMPORTANTE:
+- Sempre cite as fontes (URLs) das informações
+- Indique quando a pesquisa foi realizada
+- Sintetize informações de múltiplas fontes quando relevante
+- Se encontrar informações conflitantes, mencione isso

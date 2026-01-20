@@ -23,7 +23,6 @@ load_css("assets/style.css")
 
 st.markdown('<div class="main-header">🤖 Super AI Agent</div>', unsafe_allow_html=True)
 
-
 # Inicialização do estado da sessão
 if "agent" not in st.session_state:
     st.session_state.agent = None
@@ -62,13 +61,15 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Ferramentas disponíveis
+    # Ferramentas disponíveis - ATUALIZADO
     st.markdown("### 🛠️ Ferramentas Disponíveis")
     st.markdown("""
     - 🧮 **Calculadora**: Operações matemáticas
-    - 📚 **Base de Conhecimento**: Busca RAG
+    - 📚 **Base de Conhecimento**: Busca RAG em documentos internos
+    - 🌐 **Web Search**: Pesquisa informações atuais na internet (NOVO!)
     - 🕐 **Data/Hora**: Informações temporais
     - 📅 **Cálculo de Datas**: Diferenças entre datas
+    - 💭 **Resposta Direta**: Conhecimento geral
     """)
     
     st.markdown("---")
@@ -84,11 +85,11 @@ with st.sidebar:
     st.markdown("### ℹ️ Sobre")
     st.markdown("""
     Este é um **Super Agente de IA** equipado com múltiplas ferramentas 
-    para fornecer respostas precisas e úteis.
+    incluindo **busca web em tempo real** para fornecer respostas atualizadas.
     
     Desenvolvido com:
-    - LangChain
-    - LangGraph
+    - LangChain & LangGraph
+    - DuckDuckGo Search API
     - Streamlit
     """)
     
@@ -103,15 +104,19 @@ with st.sidebar:
     else:
         st.warning("⚠️ Base de Conhecimento não encontrada")
         st.info("Execute `python preprocessing/document_processor.py` para processar documentos")
-
-# Header principal
-
+    
+    # Web Search Status - NOVO
+    try:
+        import duckduckgo_search
+        st.success("✅ Web Search Disponível")
+    except ImportError:
+        st.error("❌ Web Search não instalado")
+        st.code("pip install duckduckgo-search")
 
 # Inicializa o agente se necessário
 if st.session_state.agent is None or settings.LLM_PROVIDER != selected_provider:
     with st.spinner(f"Inicializando agente com {selected_provider}..."):
         try:
-            # Atualiza o provider nas settings
             settings.LLM_PROVIDER = selected_provider
             st.session_state.agent = SuperAgent(provider=selected_provider)
             st.success(f"✅ Agente inicializado com {selected_provider}!")
@@ -138,13 +143,14 @@ with chat_container:
         elif msg["role"] == "assistant":
             success_badge = '<span class="success-badge">✓ Sucesso</span>' if msg.get("success", True) else '<span class="error-message">✗ Erro</span>'
             
-            # Badge de categoria
+            # Badge de categoria - ATUALIZADO COM WEB_SEARCH
             category = msg.get("category", "UNKNOWN")
             category_badges = {
-                "CALCULATOR": '<span class="tool-badge">🧮 CALCULATOR</span>',
-                "RAG": '<span class="tool-badge">📚 RAG</span>',
-                "DATETIME": '<span class="tool-badge">🕐 DATETIME</span>',
-                "DIRECT": '<span class="tool-badge">💭 DIRECT</span>'
+                "CALCULATOR": '<span class="tool-badge" style="background: #4CAF50;">🧮 CALCULATOR</span>',
+                "RAG": '<span class="tool-badge" style="background: #2196F3;">📚 RAG</span>',
+                "WEB_SEARCH": '<span class="tool-badge" style="background: #FF9800;">🌐 WEB SEARCH</span>',  # NOVO
+                "DATETIME": '<span class="tool-badge" style="background: #9C27B0;">🕐 DATETIME</span>',
+                "DIRECT": '<span class="tool-badge" style="background: #607D8B;">💭 DIRECT</span>'
             }
             category_badge = category_badges.get(category, '')
             
@@ -163,7 +169,7 @@ with st.container():
         user_input = st.text_input(
             "Digite sua mensagem:",
             key="user_input",
-            placeholder="Ex: Quanto é 128 vezes 46? / Me fale sobre LLMs / Que horas são?",
+            placeholder="Ex: Quem é o presidente do Brasil em 2025? / Notícias sobre IA / Calcule 128 × 46",
             label_visibility="collapsed"
         )
     
@@ -172,7 +178,6 @@ with st.container():
 
 # Processa a mensagem
 if send_button and user_input:
-    # Adiciona mensagem do usuário
     st.session_state.messages.append({
         "role": "user",
         "content": user_input
@@ -192,14 +197,18 @@ if send_button and user_input:
             category_icons = {
                 "CALCULATOR": "🧮",
                 "RAG": "📚",
+                "WEB_SEARCH": "🌐",  # NOVO
                 "DATETIME": "🕐",
                 "DIRECT": "💭"
             }
             icon = category_icons.get(category, "❓")
             
-            st.toast(f"{icon} Usando: {category}", icon="ℹ️")
+            # Mensagem diferenciada para web search
+            if category == "WEB_SEARCH":
+                st.toast(f"{icon} Pesquisando na web...", icon="🌐")
+            else:
+                st.toast(f"{icon} Usando: {category}", icon="ℹ️")
             
-            # Adiciona resposta do agente
             st.session_state.messages.append({
                 "role": "assistant",
                 "content": result["response"],
@@ -216,10 +225,9 @@ if send_button and user_input:
                 "category": "ERROR"
             })
     
-    # Recarrega a página para mostrar as novas mensagens
     st.rerun()
 
-# Exemplos de uso
+# Exemplos de uso - ATUALIZADO
 if len(st.session_state.messages) == 0:
     st.markdown("---")
     st.markdown("### 💡 Exemplos de perguntas:")
@@ -236,7 +244,7 @@ if len(st.session_state.messages) == 0:
     
     with col2:
         st.markdown("""
-        **📚 Conhecimento:**
+        **📚 Conhecimento Interno:**
         - Me fale sobre LLMs
         - O que você sabe sobre IA?
         - Explique sobre embeddings
@@ -244,24 +252,25 @@ if len(st.session_state.messages) == 0:
     
     with col3:
         st.markdown("""
-        **🕐 Data/Hora:**
-        - Que horas são?
-        - Qual é a data de hoje?
-        - Quantos dias entre 2024-01-01 e 2024-12-31?
+        **🌐 Web Search (NOVO!):**
+        - Quem é o presidente do Brasil em 2025?
+        - Últimas notícias sobre IA
+        - Clima em São Paulo hoje
+        - Preço atual do Bitcoin
         """)
         
     with col4:
         st.markdown("""
-        **📄 Currículo de Nycolas:**
-        - Quais são as principais habilidades de Nycolas?
-        - Quais são as experiências profissionais de Nycolas?
-        - Nycolas tem experiência com MCP?
+        **🕐 Data/Hora:**
+        - Que horas são?
+        - Qual é a data de hoje?
+        - Quantos dias entre 2024-01-01 e 2024-12-31?
         """)
 
 # Footer
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #666; font-size: 0.9rem;">
-    Desenvolvido com ❤️ usando LangChain, LangGraph e Streamlit
+    Desenvolvido com ❤️ usando LangChain, LangGraph, DuckDuckGo Search e Streamlit
 </div>
 """, unsafe_allow_html=True)
