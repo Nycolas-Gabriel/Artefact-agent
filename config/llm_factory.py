@@ -4,39 +4,28 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from config.settings import settings
 
 class LLMFactory:
-    """Factory para criar instâncias de LLM baseado no provider configurado"""
-    
     @staticmethod
-    def create_llm(provider: str = None, temperature: float = None) -> BaseChatModel:
-        """
-        Cria uma instância de LLM baseado no provider
-        
-        Args:
-            provider: 'openai' ou 'groq'. Se None, usa settings.LLM_PROVIDER
-            temperature: Temperatura do modelo. Se None, usa settings.TEMPERATURE
-            
-        Returns:
-            Instância de ChatModel configurada
-        """
+    def create_llm(provider: str = None, model: str = None, temperature: float = None) -> BaseChatModel:
         provider = provider or settings.LLM_PROVIDER
         temperature = temperature if temperature is not None else settings.TEMPERATURE
         
         if provider == "openai":
+            # Se não passar modelo, usa o default do settings
+            target_model = model or settings.OPENAI_MODEL
             return ChatOpenAI(
-                model=settings.OPENAI_MODEL,
+                model=target_model,
                 api_key=settings.OPENAI_API_KEY,
                 temperature=temperature,
-                max_tokens=settings.MAX_TOKENS,
-                request_timeout=60
+                max_tokens=settings.MAX_TOKENS
             )
         
         elif provider == "groq":
+            target_model = model or settings.GROQ_MODEL
             return ChatGroq(
-                model=settings.GROQ_MODEL,
+                model=target_model,
                 api_key=settings.GROQ_API_KEY,
                 temperature=temperature,
-                max_tokens=settings.MAX_TOKENS,
-                request_timeout=60
+                max_tokens=settings.MAX_TOKENS
             )
         
         else:

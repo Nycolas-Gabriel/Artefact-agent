@@ -57,14 +57,6 @@ def get_rag_agent_prompt() -> str:
     """
     return _load_prompt("rag_agent_prompt.txt")
 
-def get_web_search_prompt() -> str:
-    """
-    Retorna o prompt de instrução de web search
-    
-    Returns:
-        String com o prompt do web search
-    """
-    return _load_prompt("web_search_prompt.txt")
 
 def reload_prompts():
     """
