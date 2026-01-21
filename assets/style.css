@@ -22,7 +22,9 @@
     background-color: transparent;
     border-left: 4px solid #4caf50;
 }
-
+.chat-container {
+    padding-bottom: 100px; 
+}
 .error-message {
     background-color: #ffebee;
     border-left: 4px solid #f44336;

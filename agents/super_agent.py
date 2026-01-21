@@ -9,7 +9,7 @@ from config.llm_factory import llm_factory
 from tools.calculator_tool import calculator
 from tools.rag_tool import search_knowledge_base
 from tools.datetime_tool import get_current_datetime, calculate_date_difference
-from tools.web_search_tool import web_search  # NOVA IMPORTAÇÃO
+from tools.web_search_tool import web_search
 from agents.guardrails import InputGuardrails, OutputGuardrails, ConversationGuardrails
 from agents.router_agent import RouterAgent
 from prompts.system_prompts import get_super_agent_prompt, get_rag_agent_prompt
@@ -27,7 +27,7 @@ class SuperAgent:
     Agora inclui Web Search para informações atuais
     """
     
-    def __init__(self, provider: str = None):
+    def __init__(self, provider: str = None, model: str = None, temperature: float = None):
         """
         Inicializa o Super Agente com Router
         
@@ -35,10 +35,10 @@ class SuperAgent:
             provider: 'openai' ou 'groq'. Se None, usa configuração padrão
         """
         # LLM principal
-        self.llm = llm_factory.create_llm(provider)
+        self.llm = llm_factory.create_llm(provider=provider, model=model, temperature=temperature)
         
         # Router Agent
-        self.router = RouterAgent(provider)
+        self.router = RouterAgent(provider=provider)
         
         # Ferramentas disponíveis
         self.tools = {

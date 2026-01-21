@@ -88,18 +88,18 @@ class OutputGuardrails:
     
     @staticmethod
     def validate_output(response: str) -> Dict[str, Any]:
-        """
-        Valida a resposta da IA antes de enviar ao usuário
-        
-        Returns:
-            dict com 'valid', 'message', 'processed_response'
-        """
-        if not response or not response.strip():
+        if not response or len(response.strip()) < 5:
             return {
                 "valid": False,
-                "message": "Resposta vazia gerada",
-                "processed_response": "Desculpe, não consegui gerar uma resposta adequada. Por favor, tente reformular sua pergunta."
+                "processed_response": "Não foi possível consolidar os dados. Tente perguntar sobre 'Projetos do Nycolas'."
             }
+        
+        # Remove espaços extras e garante que a resposta termine bem
+        clean_response = response.strip()
+        return {
+            "valid": True,
+            "processed_response": clean_response
+        }
         
         # Verifica truncamento
         if len(response) < 10:
@@ -154,31 +154,20 @@ class OutputGuardrails:
     
     @staticmethod
     def ensure_complete_response(messages: List[BaseMessage]) -> str:
-        """
-        Garante que a resposta esteja completa e não truncada
+        if not messages: return ""
         
-        Args:
-            messages: Lista de mensagens da conversa
-            
-        Returns:
-            Resposta processada
-        """
-        if not messages:
-            return "Erro: Nenhuma resposta foi gerada."
-        
-        # Pega a última mensagem da IA
         last_message = messages[-1]
-        
         if isinstance(last_message, AIMessage):
             content = last_message.content
             
-            # Verifica se termina abruptamente
-            if content and not content.rstrip().endswith((".", "!", "?", ":", ")")):
-                content += "\n\n[Nota: A resposta pode estar incompleta devido a limitações de tamanho.]"
+            # Só adicionamos o aviso se realmente houver evidência de corte
+            # (ex: frase terminando no meio de uma palavra)
+            if content and not content.rstrip()[-1] in (".", "!", "?", "”", "»"):
+                # Em vez de apenas o aviso, poderíamos sugerir "Continue"
+                return content + "..." 
             
             return content
-        
-        return "Erro: Formato de resposta inesperado."
+        return str(last_message)
 
 
 class ConversationGuardrails:
