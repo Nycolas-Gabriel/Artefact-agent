@@ -18,6 +18,11 @@ A production-ready AI agent system featuring intelligent routing, specialized to
 - **📱 Streamlit UI**: Clean, interactive web interface
 - **🚀 Flask API**: RESTful API (work in progress) for custom frontends
 
+## 🎯 The Challenge Solution
+This system specifically addresses the Artefact technical case by:
+- **Router Logic**: Correcting identifying when to use the `Calculator Tool` vs. `Direct Response`.
+- **LLM Integration**: Seamlessly switching between specialized tool execution and general knowledge.
+
 ## 📋 Table of Contents
 
 - [Architecture](#architecture)
@@ -516,7 +521,16 @@ set LANGCHAIN_VERBOSE=true     # Windows
 # Run with debug
 python app_streamlit.py
 ```
+## 💡 Reflection & Learning
+### What I Learned
+Leveraging my previous experience with AI and data projects at **Deloitte**, I focused this challenge on exploring cutting-edge orchestration techniques. This was my first time implementing:
+- **TOON Format Optimization**: I learned how to use Text-Optimized Object Notation to significantly improve the reliability of structured data extraction, reducing parsing errors compared to standard JSON
 
+### What I would do differently with more time
+- Implement **Unit Tests** for each tool to ensure 100% reliability.
+- Add **Persistent Memory** (PostgreSQL or Redis) to maintain conversation state across different sessions.
+- Deploy the system using **Docker** to ensure environment consistency.
+- 
 ## 🔮 Future Improvements
 
 ### Planned Features
