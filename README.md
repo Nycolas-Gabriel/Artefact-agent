@@ -210,6 +210,7 @@ PROCESSING COMPLETED SUCCESSFULLY
 ```bash
 streamlit run app_streamlit.py
 ```
+It may take a few minutes.
 
 The app will open automatically at `http://localhost:8501`
 
